@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Math Trainer</title>
+  <meta name="description" content="A simple, dark-mode maths practice app with hints, difficulty levels, and offline support." />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ccircle cx=%2750%27 cy=%2750%27 r=%2750%27 fill=%27%23262b31%27/%3E%3Ctext x=%2750%27 y=%2758%27 font-size=%2760%27 text-anchor=%27middle%27 fill=%27%23f5f5f7%27%3E%F0%9F%93%9A%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg1:#1b1d22; --bg2:#262b31;
+      --text:#f5f5f7; --muted:#aaaaaa;
+      --primary:#5fdada; --secondary:#ffd166;
+      --ok:#7ae582; --bad:#ff7aa2;
+      --card:#20242b; --card2:#2a2f37;
+      --ring: 2px solid rgba(255,255,255,0.08);
+      --radius: 16px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:Rubik,system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      color:var(--text);
+      background:linear-gradient(135deg,var(--bg1),var(--bg2));
+      display:flex; align-items:center; justify-content:center;
+      padding:16px;
+    }
+    .app{
+      width:100%; max-width:560px;
+      background:linear-gradient(180deg,var(--card),var(--card2));
+      border-radius:24px; padding:20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03);
+      border: var(--ring);
+    }
+    header{
+      display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;
+    }
+    .title{font-weight:800; letter-spacing:.2px}
+    .pill{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:10px 14px; border-radius:999px; background:#2f3540; border:var(--ring); color:var(--text);
+      font-size:14px;
+    }
+    .row{display:flex; gap:10px; flex-wrap:wrap; margin:12px 0 16px}
+    select{
+      appearance:none; border:none; outline:none; background:transparent; color:var(--text);
+      font:inherit; padding-right:20px; cursor:pointer;
+    }
+    .question{
+      background:#232833; border:var(--ring); border-radius:var(--radius);
+      padding:18px; font-size:26px; text-align:center; font-weight:600;
+    }
+    .answer{
+      margin-top:10px; display:flex; gap:10px; align-items:center; justify-content:center;
+    }
+    input[type="text"]{
+      width:100%; max-width:280px; text-align:center;
+      padding:14px 16px; border-radius:999px; border:var(--ring);
+      background:#1f242d; color:var(--text); font-size:20px;
+      outline:none;
+    }
+    .pad{
+      display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:14px;
+    }
+    button{
+      border:none; cursor:pointer; font:inherit; color:var(--text);
+      background:#2b313c; padding:14px 16px; border-radius:16px;
+      border:var(--ring); transition:transform .05s ease, background .15s ease;
+    }
+    button:active{ transform:scale(0.98) }
+    .btn-primary{ background:linear-gradient(180deg,#3ecaca,#41a3a3); color:#082a2a; font-weight:700 }
+    .btn-secondary{ background:linear-gradient(180deg,#ffe08f,#ffcf5b); color:#3a2a00; font-weight:700 }
+    .btn-ok{ background:linear-gradient(180deg,#7ae582,#4fd06b); color:#073a18; font-weight:700 }
+    .btn-bad{ background:linear-gradient(180deg,#ff7aa2,#ff5a8f); color:#3a0015; font-weight:700 }
+    .actions{display:flex; gap:10px; margin-top:10px; justify-content:center; flex-wrap:wrap}
+    .feedback{ min-height:28px; text-align:center; margin-top:8px; font-weight:600 }
+    .feedback.ok{ color:var(--ok) }
+    .feedback.bad{ color:var(--bad) }
+    .hint{
+      margin-top:6px; text-align:center; color:var(--muted); font-size:14px;
+    }
+    footer{ margin-top:14px; text-align:center; color:var(--muted); font-size:13px }
+    .tiny{font-size:12px; opacity:.8}
+    .chip{display:inline-flex; gap:6px; align-items:center; padding:6px 10px; border-radius:999px; background:#2b313c; border:var(--ring); font-size:12px}
+    .grid-wide{ grid-template-columns:repeat(3, minmax(0,1fr)); }
+    @media (min-width:420px){
+      .pad{ gap:12px }
+      button{ padding:16px 18px; border-radius:18px }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" role="main">
+    <header>
+      <div class="title">Math Trainer 💡</div>
+      <div class="chip" id="streak">🔥 Streak: 0</div>
+    </header>
+
+    <section class="row">
+      <div class="pill" aria-label="Select question type">
+        <span>Type</span>
+        <select id="type">
+          <option value="mixed">Mixed</option>
+          <option value="add">Addition</option>
+          <option value="sub">Subtraction</option>
+          <option value="mul">Multiplication</option>
+          <option value="div">Division</option>
+          <option value="pct">Percentages</option>
+        </select>
+      </div>
+      <div class="pill" aria-label="Select difficulty">
+        <span>Difficulty</span>
+        <select id="difficulty">
+          <option value="easy">Easy</option>
+          <option value="medium" selected>Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+      <button id="newBtn" class="pill" title="Skip to a new question">New ↻</button>
+    </section>
+
+    <section class="question" id="question" aria-live="polite">Press “New ↻” to start</section>
+
+    <div class="answer">
+      <input id="answer" type="text" inputmode="decimal" autocomplete="off" placeholder="Type or tap…" aria-label="Your answer" />
+    </div>
+
+    <section class="pad grid-wide" aria-label="Number pad">
+      <button data-key="7">7</button>
+      <button data-key="8">8</button>
+      <button data-key="9">9</button>
+      <button data-key="4">4</button>
+      <button data-key="5">5</button>
+      <button data-key="6">6</button>
+      <button data-key="1">1</button>
+      <button data-key="2">2</button>
+      <button data-key="3">3</button>
+      <button data-key="0">0</button>
+      <button data-key=".">.</button>
+      <button id="backBtn" class="btn-secondary">⌫</button>
+    </section>
+
+    <div class="actions">
+      <button id="clearBtn" class="btn-secondary">Clear</button>
+      <button id="hintBtn" class="pill" title="Show a hint">💡 Show Hint</button>
+      <button id="submitBtn" class="btn-primary">✔️ Submit</button>
+    </div>
+
+    <div id="feedback" class="feedback" aria-live="polite"></div>
+    <div id="hint" class="hint"></div>
+
+    <footer>
+      Practice makes progress ✨
+      <div class="tiny">Offline ready. Add to Home Screen for quick access.</div>
+    </footer>
+  </main>
+
+  <script>
+    // --- State ---
+    const els = {
+      type: document.getElementById('type'),
+      difficulty: document.getElementById('difficulty'),
+      newBtn: document.getElementById('newBtn'),
+      q: document.getElementById('question'),
+      input: document.getElementById('answer'),
+      pad: document.querySelector('.pad'),
+      back: document.getElementById('backBtn'),
+      clear: document.getElementById('clearBtn'),
+      submit: document.getElementById('submitBtn'),
+      feedback: document.getElementById('feedback'),
+      hint: document.getElementById('hint'),
+      hintBtn: document.getElementById('hintBtn'),
+      streak: document.getElementById('streak'),
+    };
+
+    let current = null;          // { text, answer, op, a, b, extra }
+    let wrongOnce = false;
+    let streak = Number(localStorage.getItem('mt_streak') || 0);
+    updateStreak(0);
+
+    // --- Utils ---
+    const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+    function ranges(level){
+      if(level==='easy') return {min:1, max:10};
+      if(level==='medium') return {min:10, max:50};
+      return {min:50, max:100}; // hard
+    }
+
+    function formatQuestion(q){
+      return q.text;
+    }
+
+    function approxEqual(a,b){
+      // Allow tiny rounding differences for percentage questions
+      return Math.abs(a - b) < 0.00001;
+    }
+
+    function parseAns(v){
+      if(v.trim()==='') return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function clampLen(str, max=14){
+      return (str.length>max) ? str.slice(0,max) : str;
+    }
+
+    // --- Hint text for operations ---
+    function hintFor(q){
+      const {op,a,b,extra} = q;
+      switch(op){
+        case 'add': return `Add the tens first, then the ones. e.g. ${a} + ${b}`;
+        case 'sub': return `Count up from ${Math.min(a,b)} to ${Math.max(a,b)}, or borrow in columns.`;
+        case 'mul': return `Break it down: ${a}×${b} = ${a}×10 − ${a} if b=9, or use known facts.`;
+        case 'div': return `Think “what times ${b} gives ${a}?”`;
+        case 'pct':
+          const p = extra.p;
+          return `${p}% = ${(p/100)} of the number. 10% is one tenth, 5% is half of 10%.`;
+      }
+      return '';
+    }
+
+    // --- Generators ---
+    function newAdd(level){
+      const {min,max} = ranges(level);
+      const a = rand(min,max), b = rand(min,max);
+      return {op:'add', a,b, text:`What is ${a} + ${b}?`, answer:a+b};
+    }
+    function newSub(level){
+      const {min,max} = ranges(level);
+      let a = rand(min,max), b = rand(min,max);
+      if(a<b) [a,b] = [b,a];
+      return {op:'sub', a,b, text:`What is ${a} − ${b}?`, answer:a-b};
+    }
+    function newMul(level){
+      const {min,max} = ranges(level);
+      const a = rand(min, level==='easy'?10:max);
+      const b = rand(min, level==='easy'?10:max);
+      return {op:'mul', a,b, text:`What is ${a} × ${b}?`, answer:a*b};
+    }
+    function newDiv(level){
+      const {min,max} = ranges(level);
+      const b = rand(Math.max(2,min), Math.max(2, Math.min(12, max))); // keep divisor reasonable
+      const c = rand(min, max);
+      const a = b * c;
+      return {op:'div', a,b, text:`What is ${a} ÷ ${b}?`, answer:c};
+    }
+    function newPct(level){
+      const sets = {
+        easy:   { perc:[5,10,20,25,50], base:[10,20,30,40,50,60,70,80,90,100] },
+        medium: { perc:[5,10,15,20,25,30,40,50], base:[40,60,80,100,120,150,180,200,250,300,400,500] },
+        hard:   { perc:[7.5,12.5,17.5,22.5,35,45,55], base:[75,95,125,175,225,275,350,450,600,750,1000] }
+      };
+      const pack = sets[level] || sets.medium;
+      const p = pack.perc[rand(0, pack.perc.length-1)];
+      const base = pack.base[rand(0, pack.base.length-1)];
+      const ans = (p/100)*base;
+      // Round to 2 dp to avoid floating hell for odd combos
+      const answer = Math.round(ans*100)/100;
+      return {op:'pct', a:base, b:null, extra:{p}, text:`What is ${p}% of ${base}?`, answer};
+    }
+
+    function nextQuestion(){
+      wrongOnce = false;
+      els.feedback.textContent = '';
+      els.feedback.className = 'feedback';
+      els.hint.textContent = '';
+      els.input.value = '';
+
+      const type = els.type.value;
+      const level = els.difficulty.value;
+
+      const pick = () => {
+        switch(type){
+          case 'add': return newAdd(level);
+          case 'sub': return newSub(level);
+          case 'mul': return newMul(level);
+          case 'div': return newDiv(level);
+          case 'pct': return newPct(level);
+          default: {
+            const ops = [newAdd,newSub,newMul,newDiv,newPct];
+            return ops[rand(0,ops.length-1)](level);
+          }
+        }
+      };
+
+      current = pick();
+      els.q.textContent = formatQuestion(current);
+      els.input.focus();
+    }
+
+    function updateStreak(delta){
+      streak = Math.max(0, streak + delta);
+      localStorage.setItem('mt_streak', String(streak));
+      els.streak.textContent = `🔥 Streak: ${streak}`;
+    }
+
+    function submit(){
+      if(!current) return;
+      const raw = clampLen(els.input.value.trim());
+      const val = parseAns(raw);
+      if(val===null){ flash('Please enter an answer', 'bad'); return; }
+
+      const correct = approxEqual(Number(val), Number(current.answer));
+      if(correct){
+        els.feedback.textContent = '✅ Correct! Nice one.';
+        els.feedback.className = 'feedback ok';
+        els.hint.textContent = '';
+        updateStreak(+1);
+        // Auto-advance after a moment
+        setTimeout(nextQuestion, 1200);
+      } else {
+        els.feedback.textContent = `❌ Not quite. ${wrongOnce ? 'Try the hint!' : ''}`;
+        els.feedback.className = 'feedback bad';
+        updateStreak(-streak); // reset streak on wrong
+        if(!wrongOnce){
+          wrongOnce = true;
+          // Show hint button glow
+          pulse(els.hintBtn);
+        } else {
+          // If already wrong once, reveal hint
+          els.hint.textContent = hintFor(current);
+        }
+      }
+    }
+
+    function flash(msg, kind='bad'){
+      els.feedback.textContent = msg;
+      els.feedback.className = `feedback ${kind==='ok'?'ok':'bad'}`;
+      setTimeout(()=>{ els.feedback.textContent=''; els.feedback.className='feedback'; }, 1200);
+    }
+
+    function pulse(el){
+      el.animate([
+        { transform:'scale(1)', boxShadow:'0 0 0 0 rgba(255,255,255,0.0)' },
+        { transform:'scale(1.05)', boxShadow:'0 0 0 8px rgba(255,255,255,0.06)' },
+        { transform:'scale(1)', boxShadow:'0 0 0 0 rgba(255,255,255,0.0)' },
+      ], { duration:600, easing:'ease' });
+    }
+
+    // --- Events ---
+    els.newBtn.addEventListener('click', nextQuestion);
+    els.submit.addEventListener('click', submit);
+    els.clear.addEventListener('click', ()=>{ els.input.value=''; els.input.focus(); });
+    els.back.addEventListener('click', ()=>{
+      els.input.value = els.input.value.slice(0,-1);
+      els.input.focus();
+    });
+    els.hintBtn.addEventListener('click', ()=>{
+      if(!current) return;
+      els.hint.textContent = hintFor(current);
+    });
+
+    els.pad.addEventListener('click', (e)=>{
+      const k = e.target?.getAttribute?.('data-key');
+      if(!k) return;
+      // Only one decimal point
+      if(k==='.' && els.input.value.includes('.')) return;
+      els.input.value += k;
+      els.input.focus();
+    });
+
+    // Keyboard support
+    window.addEventListener('keydown', (e)=>{
+      if(document.activeElement !== els.input){
+        if(/[0-9]/.test(e.key)){ els.input.value += e.key; }
+        if(e.key==='.' && !els.input.value.includes('.')) els.input.value += '.';
+      }
+      if(e.key==='Enter'){ submit(); }
+      if(e.key==='Backspace' && document.activeElement !== els.input){
+        els.input.value = els.input.value.slice(0,-1);
+      }
+    });
+
+    // Load a question on first open
+    nextQuestion();
+
+    // --- Service Worker (offline) ---
+    if('serviceWorker' in navigator){
+      window.addEventListener('load', ()=>{
+        navigator.serviceWorker.register('./sw.js').catch(()=>{ /* ignore */ });
+      });
+    }
+  </script>
+</body>
+</html>
