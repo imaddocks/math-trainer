@@ -28,14 +28,15 @@
       color:var(--text);
       background:linear-gradient(135deg,var(--bg1),var(--bg2));
       display:flex; align-items:center; justify-content:center;
-      padding:16px;
+      /* Safe area padding for iPhones */
+      padding:env(safe-area-inset-top,16px) 16px 16px 16px;
     }
     .app{
       width:100%; max-width:560px;
       background:linear-gradient(180deg,var(--card),var(--card2));
       border-radius:24px; padding:20px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03);
-      border: var(--ring);
+      box-shadow:0 10px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.03);
+      border:var(--ring);
     }
     header{
       display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;
@@ -87,7 +88,7 @@
     footer{ margin-top:14px; text-align:center; color:var(--muted); font-size:13px }
     .tiny{font-size:12px; opacity:.8}
     .chip{display:inline-flex; gap:6px; align-items:center; padding:6px 10px; border-radius:999px; background:#2b313c; border:var(--ring); font-size:12px}
-    .grid-wide{ grid-template-columns:repeat(3, minmax(0,1fr)); }
+    .grid-wide{ grid-template-columns:repeat(3,minmax(0,1fr)); }
     @media (min-width:420px){
       .pad{ gap:12px }
       button{ padding:16px 18px; border-radius:18px }
@@ -102,7 +103,7 @@
     </header>
 
     <section class="row">
-      <div class="pill" aria-label="Select question type">
+      <div class="pill">
         <span>Type</span>
         <select id="type">
           <option value="mixed">Mixed</option>
@@ -113,7 +114,7 @@
           <option value="pct">Percentages</option>
         </select>
       </div>
-      <div class="pill" aria-label="Select difficulty">
+      <div class="pill">
         <span>Difficulty</span>
         <select id="difficulty">
           <option value="easy">Easy</option>
@@ -121,25 +122,27 @@
           <option value="hard">Hard</option>
         </select>
       </div>
-      <button id="newBtn" class="pill" title="Skip to a new question">New ↻</button>
+      <button id="newBtn" class="pill">New ↻</button>
     </section>
 
-    <section class="question" id="question" aria-live="polite">Press “New ↻” to start</section>
+    <section class="question" id="question">Press “New ↻” to start</section>
 
     <div class="answer">
-      <input id="answer" type="text" inputmode="decimal" autocomplete="off" placeholder="Type or tap…" aria-label="Your answer" />
+      <input id="answer" type="text" inputmode="none" readonly
+        autocomplete="off" placeholder="Tap numbers…" aria-label="Your answer" />
     </div>
 
-    <section class="pad grid-wide" aria-label="Number pad">
-      <button data-key="7">7</button>
-      <button data-key="8">8</button>
-      <button data-key="9">9</button>
-      <button data-key="4">4</button>
-      <button data-key="5">5</button>
-      <button data-key="6">6</button>
+    <!-- keypad reordered -->
+    <section class="pad grid-wide">
       <button data-key="1">1</button>
       <button data-key="2">2</button>
       <button data-key="3">3</button>
+      <button data-key="4">4</button>
+      <button data-key="5">5</button>
+      <button data-key="6">6</button>
+      <button data-key="7">7</button>
+      <button data-key="8">8</button>
+      <button data-key="9">9</button>
       <button data-key="0">0</button>
       <button data-key=".">.</button>
       <button id="backBtn" class="btn-secondary">⌫</button>
@@ -147,11 +150,11 @@
 
     <div class="actions">
       <button id="clearBtn" class="btn-secondary">Clear</button>
-      <button id="hintBtn" class="pill" title="Show a hint">💡 Show Hint</button>
+      <button id="hintBtn" class="pill">💡 Show Hint</button>
       <button id="submitBtn" class="btn-primary">✔️ Submit</button>
     </div>
 
-    <div id="feedback" class="feedback" aria-live="polite"></div>
+    <div id="feedback" class="feedback"></div>
     <div id="hint" class="hint"></div>
 
     <footer>
@@ -161,7 +164,6 @@
   </main>
 
   <script>
-    // --- State ---
     const els = {
       type: document.getElementById('type'),
       difficulty: document.getElementById('difficulty'),
@@ -178,213 +180,93 @@
       streak: document.getElementById('streak'),
     };
 
-    let current = null;          // { text, answer, op, a, b, extra }
-    let wrongOnce = false;
-    let streak = Number(localStorage.getItem('mt_streak') || 0);
+    let current=null, wrongOnce=false;
+    let streak=Number(localStorage.getItem('mt_streak')||0);
     updateStreak(0);
 
-    // --- Utils ---
-    const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-    function ranges(level){
-      if(level==='easy') return {min:1, max:10};
-      if(level==='medium') return {min:10, max:50};
-      return {min:50, max:100}; // hard
-    }
+    const rand=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+    function ranges(l){return l==='easy'?{min:1,max:10}:l==='medium'?{min:10,max:50}:{min:50,max:100};}
+    const approxEqual=(a,b)=>Math.abs(a-b)<0.00001;
+    const parseAns=v=>v.trim()===''?null:(isFinite(+v)?+v:null);
+    const clampLen=(s,m=14)=>s.length>m?s.slice(0,m):s;
 
-    function formatQuestion(q){
-      return q.text;
-    }
-
-    function approxEqual(a,b){
-      // Allow tiny rounding differences for percentage questions
-      return Math.abs(a - b) < 0.00001;
-    }
-
-    function parseAns(v){
-      if(v.trim()==='') return null;
-      const n = Number(v);
-      return Number.isFinite(n) ? n : null;
-    }
-
-    function clampLen(str, max=14){
-      return (str.length>max) ? str.slice(0,max) : str;
-    }
-
-    // --- Hint text for operations ---
     function hintFor(q){
-      const {op,a,b,extra} = q;
+      const {op,a,b,extra}=q;
       switch(op){
-        case 'add': return `Add the tens first, then the ones. e.g. ${a} + ${b}`;
-        case 'sub': return `Count up from ${Math.min(a,b)} to ${Math.max(a,b)}, or borrow in columns.`;
-        case 'mul': return `Break it down: ${a}×${b} = ${a}×10 − ${a} if b=9, or use known facts.`;
-        case 'div': return `Think “what times ${b} gives ${a}?”`;
-        case 'pct':
-          const p = extra.p;
-          return `${p}% = ${(p/100)} of the number. 10% is one tenth, 5% is half of 10%.`;
-      }
-      return '';
+        case'add':return`Add the tens first, then the ones.`;
+        case'sub':return`Count up from ${Math.min(a,b)} to ${Math.max(a,b)}.`;
+        case'mul':return`Break it down: ${a}×${b} = ${a}×10 − ${a} if b=9.`;
+        case'div':return`Think “what times ${b} gives ${a}?”`;
+        case'pct':return`${extra.p}% = ${(extra.p/100)} of the number.`;
+      }return'';
     }
 
-    // --- Generators ---
-    function newAdd(level){
-      const {min,max} = ranges(level);
-      const a = rand(min,max), b = rand(min,max);
-      return {op:'add', a,b, text:`What is ${a} + ${b}?`, answer:a+b};
-    }
-    function newSub(level){
-      const {min,max} = ranges(level);
-      let a = rand(min,max), b = rand(min,max);
-      if(a<b) [a,b] = [b,a];
-      return {op:'sub', a,b, text:`What is ${a} − ${b}?`, answer:a-b};
-    }
-    function newMul(level){
-      const {min,max} = ranges(level);
-      const a = rand(min, level==='easy'?10:max);
-      const b = rand(min, level==='easy'?10:max);
-      return {op:'mul', a,b, text:`What is ${a} × ${b}?`, answer:a*b};
-    }
-    function newDiv(level){
-      const {min,max} = ranges(level);
-      const b = rand(Math.max(2,min), Math.max(2, Math.min(12, max))); // keep divisor reasonable
-      const c = rand(min, max);
-      const a = b * c;
-      return {op:'div', a,b, text:`What is ${a} ÷ ${b}?`, answer:c};
-    }
-    function newPct(level){
-      const sets = {
-        easy:   { perc:[5,10,20,25,50], base:[10,20,30,40,50,60,70,80,90,100] },
-        medium: { perc:[5,10,15,20,25,30,40,50], base:[40,60,80,100,120,150,180,200,250,300,400,500] },
-        hard:   { perc:[7.5,12.5,17.5,22.5,35,45,55], base:[75,95,125,175,225,275,350,450,600,750,1000] }
+    function newAdd(l){const{min,max}=ranges(l);const a=rand(min,max),b=rand(min,max);return{op:'add',a,b,text:`What is ${a}+${b}?`,answer:a+b}}
+    function newSub(l){const{min,max}=ranges(l);let a=rand(min,max),b=rand(min,max);if(a<b)[a,b]=[b,a];return{op:'sub',a,b,text:`What is ${a}−${b}?`,answer:a-b}}
+    function newMul(l){const{min,max}=ranges(l);const a=rand(min,l==='easy'?10:max),b=rand(min,l==='easy'?10:max);return{op:'mul',a,b,text:`What is ${a}×${b}?`,answer:a*b}}
+    function newDiv(l){const{min,max}=ranges(l);const b=rand(Math.max(2,min),Math.max(2,Math.min(12,max)));const c=rand(min,max);const a=b*c;return{op:'div',a,b,text:`What is ${a}÷${b}?`,answer:c}}
+    function newPct(l){
+      const sets={
+        easy:{perc:[5,10,20,25,50],base:[10,20,50,100]},
+        medium:{perc:[5,10,15,20,25,30,40,50],base:[60,80,100,120,150,200,250,300]},
+        hard:{perc:[7.5,12.5,17.5,22.5,35,45,55],base:[75,95,125,175,275,450,600]}
       };
-      const pack = sets[level] || sets.medium;
-      const p = pack.perc[rand(0, pack.perc.length-1)];
-      const base = pack.base[rand(0, pack.base.length-1)];
-      const ans = (p/100)*base;
-      // Round to 2 dp to avoid floating hell for odd combos
-      const answer = Math.round(ans*100)/100;
-      return {op:'pct', a:base, b:null, extra:{p}, text:`What is ${p}% of ${base}?`, answer};
+      const pset=sets[l]||sets.medium;
+      const p=pset.perc[rand(0,pset.perc.length-1)];
+      const base=pset.base[rand(0,pset.base.length-1)];
+      const ans=Math.round((p/100*base)*100)/100;
+      return{op:'pct',a:base,extra:{p},text:`What is ${p}% of ${base}?`,answer:ans};
     }
 
     function nextQuestion(){
-      wrongOnce = false;
-      els.feedback.textContent = '';
-      els.feedback.className = 'feedback';
-      els.hint.textContent = '';
-      els.input.value = '';
-
-      const type = els.type.value;
-      const level = els.difficulty.value;
-
-      const pick = () => {
-        switch(type){
-          case 'add': return newAdd(level);
-          case 'sub': return newSub(level);
-          case 'mul': return newMul(level);
-          case 'div': return newDiv(level);
-          case 'pct': return newPct(level);
-          default: {
-            const ops = [newAdd,newSub,newMul,newDiv,newPct];
-            return ops[rand(0,ops.length-1)](level);
-          }
-        }
-      };
-
-      current = pick();
-      els.q.textContent = formatQuestion(current);
-      els.input.focus();
+      wrongOnce=false;
+      els.feedback.textContent=''; els.feedback.className='feedback';
+      els.hint.textContent=''; els.input.value='';
+      const t=els.type.value,d=els.difficulty.value;
+      const ops={add:newAdd,sub:newSub,mul:newMul,div:newDiv,pct:newPct};
+      current=t==='mixed'?[newAdd,newSub,newMul,newDiv,newPct][rand(0,4)](d):ops[t](d);
+      els.q.textContent=current.text;
     }
 
-    function updateStreak(delta){
-      streak = Math.max(0, streak + delta);
-      localStorage.setItem('mt_streak', String(streak));
-      els.streak.textContent = `🔥 Streak: ${streak}`;
-    }
+    function updateStreak(d){streak=Math.max(0,streak+d);localStorage.setItem('mt_streak',streak);els.streak.textContent=`🔥 Streak: ${streak}`;}
 
     function submit(){
-      if(!current) return;
-      const raw = clampLen(els.input.value.trim());
-      const val = parseAns(raw);
-      if(val===null){ flash('Please enter an answer', 'bad'); return; }
-
-      const correct = approxEqual(Number(val), Number(current.answer));
-      if(correct){
-        els.feedback.textContent = '✅ Correct! Nice one.';
-        els.feedback.className = 'feedback ok';
-        els.hint.textContent = '';
-        updateStreak(+1);
-        // Auto-advance after a moment
-        setTimeout(nextQuestion, 1200);
+      if(!current)return;
+      const val=parseAns(clampLen(els.input.value.trim()));
+      if(val===null)return flash('Please enter an answer','bad');
+      if(approxEqual(val,current.answer)){
+        els.feedback.textContent='✅ Correct!'; els.feedback.className='feedback ok';
+        updateStreak(1); setTimeout(nextQuestion,1200);
       } else {
-        els.feedback.textContent = `❌ Not quite. ${wrongOnce ? 'Try the hint!' : ''}`;
-        els.feedback.className = 'feedback bad';
-        updateStreak(-streak); // reset streak on wrong
-        if(!wrongOnce){
-          wrongOnce = true;
-          // Show hint button glow
-          pulse(els.hintBtn);
-        } else {
-          // If already wrong once, reveal hint
-          els.hint.textContent = hintFor(current);
-        }
+        els.feedback.textContent='❌ Not quite.'; els.feedback.className='feedback bad';
+        updateStreak(-streak);
+        if(!wrongOnce){wrongOnce=true;pulse(els.hintBtn);} else els.hint.textContent=hintFor(current);
       }
     }
 
-    function flash(msg, kind='bad'){
-      els.feedback.textContent = msg;
-      els.feedback.className = `feedback ${kind==='ok'?'ok':'bad'}`;
-      setTimeout(()=>{ els.feedback.textContent=''; els.feedback.className='feedback'; }, 1200);
+    function flash(msg,k='bad'){els.feedback.textContent=msg;els.feedback.className=`feedback ${k==='ok'?'ok':'bad'}`;setTimeout(()=>{els.feedback.textContent='';els.feedback.className='feedback';},1200);}
+    function pulse(el){el.animate([{transform:'scale(1)'},{transform:'scale(1.05)'},{transform:'scale(1)'}],{duration:600,easing:'ease'});}
+
+    els.newBtn.onclick=nextQuestion;
+    els.submit.onclick=submit;
+    els.clear.onclick=()=>els.input.value='';
+    els.back.onclick=()=>els.input.value=els.input.value.slice(0,-1);
+    els.hintBtn.onclick=()=>current&&(els.hint.textContent=hintFor(current));
+    els.pad.onclick=e=>{const k=e.target.getAttribute('data-key');if(!k)return;if(k==='.'&&els.input.value.includes('.'))return;els.input.value+=k;};
+
+    // Keyboard support (only on desktop)
+    if(window.innerWidth>768){
+      els.input.removeAttribute('readonly');
+      els.input.setAttribute('inputmode','decimal');
+      window.addEventListener('keydown',e=>{
+        if(e.key==='Enter')submit();
+      });
     }
 
-    function pulse(el){
-      el.animate([
-        { transform:'scale(1)', boxShadow:'0 0 0 0 rgba(255,255,255,0.0)' },
-        { transform:'scale(1.05)', boxShadow:'0 0 0 8px rgba(255,255,255,0.06)' },
-        { transform:'scale(1)', boxShadow:'0 0 0 0 rgba(255,255,255,0.0)' },
-      ], { duration:600, easing:'ease' });
-    }
-
-    // --- Events ---
-    els.newBtn.addEventListener('click', nextQuestion);
-    els.submit.addEventListener('click', submit);
-    els.clear.addEventListener('click', ()=>{ els.input.value=''; els.input.focus(); });
-    els.back.addEventListener('click', ()=>{
-      els.input.value = els.input.value.slice(0,-1);
-      els.input.focus();
-    });
-    els.hintBtn.addEventListener('click', ()=>{
-      if(!current) return;
-      els.hint.textContent = hintFor(current);
-    });
-
-    els.pad.addEventListener('click', (e)=>{
-      const k = e.target?.getAttribute?.('data-key');
-      if(!k) return;
-      // Only one decimal point
-      if(k==='.' && els.input.value.includes('.')) return;
-      els.input.value += k;
-      els.input.focus();
-    });
-
-    // Keyboard support
-    window.addEventListener('keydown', (e)=>{
-      if(document.activeElement !== els.input){
-        if(/[0-9]/.test(e.key)){ els.input.value += e.key; }
-        if(e.key==='.' && !els.input.value.includes('.')) els.input.value += '.';
-      }
-      if(e.key==='Enter'){ submit(); }
-      if(e.key==='Backspace' && document.activeElement !== els.input){
-        els.input.value = els.input.value.slice(0,-1);
-      }
-    });
-
-    // Load a question on first open
     nextQuestion();
 
-    // --- Service Worker (offline) ---
     if('serviceWorker' in navigator){
-      window.addEventListener('load', ()=>{
-        navigator.serviceWorker.register('./sw.js').catch(()=>{ /* ignore */ });
-      });
+      window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
     }
   </script>
 </body>
