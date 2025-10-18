@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <!-- Added viewport-fit=cover for iPhone safe-area support -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Math Trainer</title>
   <meta name="description" content="Dark-mode maths practice app with hints, difficulty levels, and offline support." />
@@ -23,7 +22,7 @@
     }
 
     * { box-sizing:border-box }
-    html, body { height:100% }
+    html, body { height:100%; }
 
     body {
       margin:0;
@@ -31,9 +30,17 @@
       color:var(--text);
       background:linear-gradient(135deg, var(--bg1), var(--bg2));
       display:flex;
+      justify-content:center;
+      min-height:100vh;
+    }
+
+    /* Wrapper to handle iPhone safe-area padding */
+    .safe-wrapper {
+      display:flex;
       align-items:center;
       justify-content:center;
-      /* Safe area padding for notches and home bar */
+      flex:1;
+      width:100%;
       padding-top:calc(env(safe-area-inset-top, 0px) + 16px);
       padding-right:16px;
       padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 16px);
@@ -133,72 +140,73 @@
   </style>
 </head>
 <body>
-  <main class="app" role="main">
-    <header>
-      <div class="title">Math Trainer 💡</div>
-      <div class="chip" id="streak">🔥 Streak: 0</div>
-    </header>
+  <div class="safe-wrapper">
+    <main class="app" role="main">
+      <header>
+        <div class="title">Math Trainer 💡</div>
+        <div class="chip" id="streak">🔥 Streak: 0</div>
+      </header>
 
-    <section class="row">
-      <div class="pill">
-        <span>Type</span>
-        <select id="type">
-          <option value="mixed">Mixed</option>
-          <option value="add">Addition</option>
-          <option value="sub">Subtraction</option>
-          <option value="mul">Multiplication</option>
-          <option value="div">Division</option>
-          <option value="pct">Percentages</option>
-        </select>
+      <section class="row">
+        <div class="pill">
+          <span>Type</span>
+          <select id="type">
+            <option value="mixed">Mixed</option>
+            <option value="add">Addition</option>
+            <option value="sub">Subtraction</option>
+            <option value="mul">Multiplication</option>
+            <option value="div">Division</option>
+            <option value="pct">Percentages</option>
+          </select>
+        </div>
+        <div class="pill">
+          <span>Difficulty</span>
+          <select id="difficulty">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <button id="newBtn" class="pill">New ↻</button>
+      </section>
+
+      <section class="question" id="question">Press “New ↻” to start</section>
+
+      <div class="answer">
+        <input id="answer" type="text" inputmode="none" readonly
+          autocomplete="off" placeholder="Tap numbers…" aria-label="Your answer" />
       </div>
-      <div class="pill">
-        <span>Difficulty</span>
-        <select id="difficulty">
-          <option value="easy">Easy</option>
-          <option value="medium" selected>Medium</option>
-          <option value="hard">Hard</option>
-        </select>
+
+      <section class="pad">
+        <button data-key="1">1</button>
+        <button data-key="2">2</button>
+        <button data-key="3">3</button>
+        <button data-key="4">4</button>
+        <button data-key="5">5</button>
+        <button data-key="6">6</button>
+        <button data-key="7">7</button>
+        <button data-key="8">8</button>
+        <button data-key="9">9</button>
+        <button data-key="0">0</button>
+        <button data-key=".">.</button>
+        <button id="backBtn" class="btn-secondary">⌫</button>
+      </section>
+
+      <div class="actions" style="display:flex;gap:10px;justify-content:center;margin-top:10px;flex-wrap:wrap;">
+        <button id="clearBtn" class="btn-secondary">Clear</button>
+        <button id="hintBtn" class="pill">💡 Show Hint</button>
+        <button id="submitBtn" class="btn-primary">✔️ Submit</button>
       </div>
-      <button id="newBtn" class="pill">New ↻</button>
-    </section>
 
-    <section class="question" id="question">Press “New ↻” to start</section>
+      <div id="feedback" class="feedback"></div>
+      <div id="hint" class="hint"></div>
 
-    <div class="answer">
-      <input id="answer" type="text" inputmode="none" readonly
-        autocomplete="off" placeholder="Tap numbers…" aria-label="Your answer" />
-    </div>
-
-    <!-- keypad reordered 1–9 -->
-    <section class="pad">
-      <button data-key="1">1</button>
-      <button data-key="2">2</button>
-      <button data-key="3">3</button>
-      <button data-key="4">4</button>
-      <button data-key="5">5</button>
-      <button data-key="6">6</button>
-      <button data-key="7">7</button>
-      <button data-key="8">8</button>
-      <button data-key="9">9</button>
-      <button data-key="0">0</button>
-      <button data-key=".">.</button>
-      <button id="backBtn" class="btn-secondary">⌫</button>
-    </section>
-
-    <div class="actions" style="display:flex;gap:10px;justify-content:center;margin-top:10px;flex-wrap:wrap;">
-      <button id="clearBtn" class="btn-secondary">Clear</button>
-      <button id="hintBtn" class="pill">💡 Show Hint</button>
-      <button id="submitBtn" class="btn-primary">✔️ Submit</button>
-    </div>
-
-    <div id="feedback" class="feedback"></div>
-    <div id="hint" class="hint"></div>
-
-    <footer>
-      Practice makes progress ✨
-      <div class="tiny">Offline ready. Add to Home Screen for quick access.</div>
-    </footer>
-  </main>
+      <footer>
+        Practice makes progress ✨
+        <div class="tiny">Offline ready. Add to Home Screen for quick access.</div>
+      </footer>
+    </main>
+  </div>
 
   <script>
     const els={
